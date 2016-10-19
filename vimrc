@@ -8,12 +8,17 @@ set smartcase           " 検索文字に大文字がある場合は大文字小
 set incsearch           " インクリメンタルサーチ
 set hlsearch            " 検索マッチテキストをハイライト
 
-set expandtab
-set tabstop=2
-"set softtabstop=2
 
-set smartindent
-set shiftwidth=2
+if expand("%:t") =~ ".*\.go"
+  set noexpandtab
+  set tabstop=4
+  set shiftwidth=4
+else
+  set expandtab
+  set tabstop=2
+  set smartindent
+  set shiftwidth=2
+endif
 
 " バックスラッシュやクエスチョンを状況に合わせ自動的にエスケープ
 cnoremap <expr> / getcmdtype() == '/' ? '\/' : '/'
@@ -147,143 +152,45 @@ if filereadable(s:local_vimrc)
     execute 'source ' . s:local_vimrc
 endif
 
-
-" NeoBundleの設定
-let s:noplugin = 0
-let s:bundle_root = expand('~/.vim/bundle')
-let s:neobundle_root = s:bundle_root . '/neobundle.vim'
-if !isdirectory(s:neobundle_root) || v:version < 702
-    " NeoBundleが存在しない、もしくはVimのバージョンが古い場合はプラグインを
-    " 読み込まない
-    let s:noplugin = 1
-else
-    " NeoBundleを'runtimepath'に追加し初期化を行う
-    if has('vim_starting')
-        execute "set runtimepath+=" . s:neobundle_root
-    endif
-
-    " Required:
-    call neobundle#begin(expand(s:bundle_root))
-
-    " NeoBundle自身をNeoBundleで管理させる
-    NeoBundleFetch 'Shougo/neobundle.vim'
-
-    " 非同期通信を可能にする
-    " 'build'が指定されているのでインストール時に自動的に
-    " 指定されたコマンドが実行され vimproc がコンパイルされる
-    NeoBundle "Shougo/vimproc", {
-        \ "build": {
-        \   "windows"   : "make -f make_mingw32.mak",
-        \   "cygwin"    : "make -f make_cygwin.mak",
-        \   "mac"       : "make -f make_mac.mak",
-        \   "unix"      : "make -f make_unix.mak",
-        \ }}
-
-    " neocomplete設定
-    " 次に説明するがInsertモードに入るまではneocompleteはロードされない
-    NeoBundleLazy 'Shougo/neocomplete.vim', {
-        \ "autoload": {"insert": 1}}
-    " neocompleteのhooksを取得
-    let s:hooks = neobundle#get_hooks(s:bundle_root . "neocomplete.vim")
-    " neocomplete用の設定関数を定義。下記関数はneocompleteロード時に実行される
-    function! s:hooks.on_source(bundle)
-        let g:acp_enableAtStartup = 0
-        let g:neocomplete#enable_smart_case = 1
-        " NeoCompleteを有効化
-        NeoCompleteEnable
-    endfunction 
-
-    NeoBundle "thinca/vim-template"
-    " テンプレート中に含まれる特定文字列を置き換える
-    autocmd MyAutoCmd User plugin-template-loaded call s:template_keywords()
-    function! s:template_keywords()
-        silent! %s/<+DATE+>/\=strftime('%Y-%m-%d')/g
-        silent! %s/<+FILENAME+>/\=expand('%:r')/g
-    endfunction
-    " テンプレート中に含まれる'<+CURSOR+>'にカーソルを移動
-    autocmd MyAutoCmd User plugin-template-loaded
-        \   if search('<+CURSOR+>')
-        \ |   silent! execute 'normal! "_da>'
-        \ | endif
-
-    NeoBundleLazy "Shougo/unite.vim", {
-          \ "autoload": {
-          \   "commands": ["Unite", "UniteWithBufferDir"]
-          \ }}
-    NeoBundleLazy 'h1mesuke/unite-outline', {
-          \ "autoload": {
-          \   "unite_sources": ["outline"],
-          \ }}
-    nnoremap [unite] <Nop>
-    nmap U [unite]
-    nnoremap <silent> [unite]f :<C-u>UniteWithBufferDir -buffer-name=files file<CR>
-    nnoremap <silent> [unite]b :<C-u>Unite buffer<CR>
-    nnoremap <silent> [unite]r :<C-u>Unite register<CR>
-    nnoremap <silent> [unite]m :<C-u>Unite file_mru<CR>
-    nnoremap <silent> [unite]c :<C-u>Unite bookmark<CR>
-    nnoremap <silent> [unite]o :<C-u>Unite outline<CR>
-    nnoremap <silent> [unite]t :<C-u>Unite tab<CR>
-    nnoremap <silent> [unite]w :<C-u>Unite window<CR>
-    let s:hooks = neobundle#get_hooks(s:bundle_root . "unite.vim")
-    function! s:hooks.on_source(bundle)
-      " start unite in insert mode
-      let g:unite_enable_start_insert = 1
-      " use vimfiler to open directory
-      call unite#custom_default_action("source/bookmark/directory", "vimfiler")
-      call unite#custom_default_action("directory", "vimfiler")
-      call unite#custom_default_action("directory_mru", "vimfiler")
-      autocmd MyAutoCmd FileType unite call s:unite_settings()
-      function! s:unite_settings()
-        imap <buffer> <Esc><Esc> <Plug>(unite_exit)
-        nmap <buffer> <Esc> <Plug>(unite_exit)
-        nmap <buffer> <C-n> <Plug>(unite_select_next_line)
-        nmap <buffer> <C-p> <Plug>(unite_select_previous_line)
-      endfunction
-    endfunction
-
-    NeoBundleLazy "davidhalter/jedi-vim", {
-          \ "autoload": {
-          \   "filetypes": ["python", "python3", "djangohtml"],
-          \ },
-          \ "build": {
-          \   "mac": "pip install jedi",
-          \   "unix": "pip install jedi",
-          \ }}
-    let s:hooks = neobundle#get_hooks(s:bundle_root . "jedi-vim")
-    function! s:hooks.on_source(bundle)
-      " jediにvimの設定を任せると'completeopt+=preview'するので
-      " 自動設定機能をOFFにし手動で設定を行う
-      let g:jedi#auto_vim_configuration = 0
-      " 補完の最初の項目が選択された状態だと使いにくいためオフにする
-      let g:jedi#popup_select_first = 0
-      " quickrunと被るため大文字に変更
-      let g:jedi#rename_command = '<Leader>R'
-      " gundoと被るため大文字に変更 (2013-06-24 10:00 追記）
-      " let g:jedi#goto_command = '<Leader>G'
-      let g:jedi#goto_assignments_command = '<Leader>G'
-    endfunction
-
-    call neobundle#end()
-
-    " インストールされていないプラグインのチェックおよびダウンロード
-    NeoBundleCheck
+if !&compatible
+  set nocompatible
 endif
 
-" ファイルタイププラグインおよびインデントを有効化
-" これはNeoBundleによる処理が終了したあとに呼ばなければならない
-filetype plugin indent on
+" reset augroup
+augroup MyAutoCmd
+  autocmd!
+augroup END
 
+" dein settings {{{
+" dein自体の自動インストール
+let s:cache_home = empty($XDG_CACHE_HOME) ? expand('~/.vim') : $XDG_CACHE_HOME
+let s:dein_dir = s:cache_home . '/dein'
+let s:dein_repo_dir = s:dein_dir . '/repos/github.com/Shougo/dein.vim'
+if !isdirectory(s:dein_repo_dir)
+  call system('git clone https://github.com/Shougo/dein.vim ' . shellescape(s:dein_repo_dir))
+endif
+let &runtimepath = s:dein_repo_dir .",". &runtimepath
+" プラグイン読み込み＆キャッシュ作成
+let s:toml_file = fnamemodify(expand('<sfile>'), ':h').'/.dein.toml'
+if dein#load_state(s:dein_dir)
+  call dein#begin(s:dein_dir, [$MYVIMRC, s:toml_file])
+  call dein#load_toml(s:toml_file)
+  call dein#end()
+  call dein#save_state()
+endif
+" 不足プラグインの自動インストール
+if has('vim_starting') && dein#check_install()
+  call dein#install()
+endif
+" }}}
 
-autocmd FileType python setlocal omnifunc=jedi#completions
-let g:jedi#completions_enabled = 0
-let g:jedi#auto_vim_configuration = 0
-
-if !exists('g:neocomplete#force_omni_input_patterns')
-        let g:neocomplete#force_omni_input_patterns = {}
+" 引数なしでvimを開くとNERDTreeを起動
+let file_name = expand('%')
+if has('vim_starting') &&  file_name == ''
+  autocmd VimEnter * NERDTree ./
 endif
 
-" let g:neocomplete#force_omni_input_patterns.python = '\%([^. \t]\.\|^\s*@\|^\s*from\s.\+import \|^\s*from \|^\s*import \)\w*'
-let g:neocomplete#force_omni_input_patterns.python = '\h\w*\|[^. \t]\.\w*'
+"End dein Scripts-------------------------
 
 syntax on
 
