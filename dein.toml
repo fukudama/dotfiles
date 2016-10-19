@@ -7,3 +7,9 @@ repo   = 'Shougo/unite.vim'
 [[plugins]]
 repo = 'Shougo/neocomplete.vim'
 on_i = 1
+
+[[plugins]]
+repo = 'davidhalter/jedi-vim'
+
+[[plugins]]
+repo = 'andviro/flake8-vim'
